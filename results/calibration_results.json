@@ -1,0 +1,148 @@
+{
+  "ensemble": {
+    "brier_score": 0.2911,
+    "ece": 0.1944,
+    "decomposition": {
+      "brier_score": 0.2911,
+      "reliability": 0.0479,
+      "resolution": 0.0073,
+      "uncertainty": 0.2496,
+      "skill_score": -0.1662
+    },
+    "reliability_diagram": [
+      {
+        "bin_center": 0.05,
+        "mean_predicted": 0.05,
+        "fraction_positive": NaN,
+        "count": 0
+      },
+      {
+        "bin_center": 0.15000000000000002,
+        "mean_predicted": 0.19157853622832358,
+        "fraction_positive": 1.0,
+        "count": 6
+      },
+      {
+        "bin_center": 0.25,
+        "mean_predicted": 0.2668702603593494,
+        "fraction_positive": 0.5132743362831859,
+        "count": 113
+      },
+      {
+        "bin_center": 0.35000000000000003,
+        "mean_predicted": 0.35122173633598264,
+        "fraction_positive": 0.5565217391304348,
+        "count": 230
+      },
+      {
+        "bin_center": 0.45,
+        "mean_predicted": 0.4327672776189167,
+        "fraction_positive": 0.3875,
+        "count": 80
+      },
+      {
+        "bin_center": 0.55,
+        "mean_predicted": 0.5110578783869293,
+        "fraction_positive": 0.6666666666666666,
+        "count": 3
+      },
+      {
+        "bin_center": 0.6500000000000001,
+        "mean_predicted": 0.6500000000000001,
+        "fraction_positive": NaN,
+        "count": 0
+      },
+      {
+        "bin_center": 0.75,
+        "mean_predicted": 0.75,
+        "fraction_positive": NaN,
+        "count": 0
+      },
+      {
+        "bin_center": 0.8500000000000001,
+        "mean_predicted": 0.8500000000000001,
+        "fraction_positive": NaN,
+        "count": 0
+      },
+      {
+        "bin_center": 0.95,
+        "mean_predicted": 0.95,
+        "fraction_positive": NaN,
+        "count": 0
+      }
+    ]
+  },
+  "bayesian": {
+    "brier_score": 0.2492,
+    "ece": 0.0114,
+    "decomposition": {
+      "brier_score": 0.2492,
+      "reliability": 0.0001,
+      "resolution": 0.0007,
+      "uncertainty": 0.2496,
+      "skill_score": 0.0015
+    },
+    "reliability_diagram": [
+      {
+        "bin_center": 0.05,
+        "mean_predicted": 0.05,
+        "fraction_positive": NaN,
+        "count": 0
+      },
+      {
+        "bin_center": 0.15000000000000002,
+        "mean_predicted": 0.15000000000000002,
+        "fraction_positive": NaN,
+        "count": 0
+      },
+      {
+        "bin_center": 0.25,
+        "mean_predicted": 0.25,
+        "fraction_positive": NaN,
+        "count": 0
+      },
+      {
+        "bin_center": 0.35000000000000003,
+        "mean_predicted": 0.35000000000000003,
+        "fraction_positive": NaN,
+        "count": 0
+      },
+      {
+        "bin_center": 0.45,
+        "mean_predicted": 0.47187706430436505,
+        "fraction_positive": 0.4489795918367347,
+        "count": 49
+      },
+      {
+        "bin_center": 0.55,
+        "mean_predicted": 0.5200970965381594,
+        "fraction_positive": 0.5300261096605744,
+        "count": 383
+      },
+      {
+        "bin_center": 0.6500000000000001,
+        "mean_predicted": 0.6500000000000001,
+        "fraction_positive": NaN,
+        "count": 0
+      },
+      {
+        "bin_center": 0.75,
+        "mean_predicted": 0.75,
+        "fraction_positive": NaN,
+        "count": 0
+      },
+      {
+        "bin_center": 0.8500000000000001,
+        "mean_predicted": 0.8500000000000001,
+        "fraction_positive": NaN,
+        "count": 0
+      },
+      {
+        "bin_center": 0.95,
+        "mean_predicted": 0.95,
+        "fraction_positive": NaN,
+        "count": 0
+      }
+    ]
+  }
+}
