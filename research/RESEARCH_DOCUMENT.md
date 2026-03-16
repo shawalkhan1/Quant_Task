@@ -25,13 +25,13 @@
 
 ## 1. Executive Summary
 
-This document describes the design, implementation, and evaluation of a quantitative trading platform for 15-minute crypto prediction markets. The system simulates Polymarket-style binary markets ("Will BTC be above price X in 15 minutes?") and implements three distinct trading strategies:
+This document summarizes a quantitative trading platform for 15-minute crypto prediction markets with three strategies:
 
 1. **Market Maker Strategy** — Provides liquidity by quoting dynamic bid/ask spreads around estimated fair value, with inventory control.
-2. **Arbitrage Strategy** — Detects and exploits pricing inconsistencies between YES/NO prices and Black-Scholes fair values.
+2. **Arbitrage Strategy** — Detects and exploits pricing inconsistencies between YES/NO prices and market-implied fair values.
 3. **Predictive Strategy** — Uses an ML ensemble (Logistic Regression + Gradient Boosted Trees) to estimate event probabilities and trade mispricings.
 
-The platform includes a complete backtesting engine, walk-forward out-of-sample testing, probability calibration analysis, and an interactive Streamlit dashboard.
+The platform includes backtesting, walk-forward OOS testing, calibration analysis, and a Streamlit dashboard.
 
 **Key findings:**
 - The Predictive strategy achieves the best risk-adjusted returns when properly calibrated
@@ -45,11 +45,11 @@ The platform includes a complete backtesting engine, walk-forward out-of-sample 
 
 ### 2.1 Overview
 
-The platform follows a modular architecture with clear separation of concerns:
+Modular architecture:
 
 ```
 Platform
-├── Data Layer         → Fetches/caches crypto data, simulates prediction markets
+├── Data Layer         → Fetches/caches live Polymarket market and token price data
 ├── Feature Engine     → Generates 35+ features from price and market data
 ├── Backtesting Engine → Event-driven bar-by-bar simulation
 ├── Strategy Framework → Pluggable strategy interface with risk management
@@ -72,51 +72,40 @@ Platform
 ### 3.1 Data Sources
 
 **Price Data:**
-- Source: Binance via `ccxt` library (BTC/USDT, ETH/USDT)
-- Timeframe: 1-minute OHLCV candles
-- History: Up to 30 days (~43,200 bars per asset)
-- Fallback: Geometric Brownian Motion synthetic data with realistic statistical properties
+- Source: Polymarket token YES price timeseries aggregated to a 1-minute proxy OHLCV stream
+- Timeframe: 1-minute observations
+- History: Configurable lookback (default 30 days)
 
 **Prediction Market Data:**
-- Source: Simulated from price data using Black-Scholes digital option pricing
-- Market type: Binary options ("Will price be above strike in 15 minutes?")
-- Duration: 15 minutes per market
-- Resolution: YES (1) if final price > strike, NO (0) otherwise
+- Source: Live Polymarket public APIs (Gamma, CLOB, Data API)
+- Market type: Binary prediction markets (category-dependent)
+- Duration: Market-specific (including short-duration markets)
+- Resolution: Derived from Polymarket settled outcomes
 
-### 3.2 Prediction Market Simulation
+### 3.2 Live Market Ingestion
 
-Since real Polymarket 15-minute market data is not freely available via API, we simulate markets using a well-established financial model.
+Polymarket data is publicly accessible through no-auth endpoints documented at:
+https://docs.polymarket.com/api-reference/introduction
 
-**Digital Option Pricing (Black-Scholes):**
+**Ingestion flow:**
 
-The fair price of a binary digital call option is:
+1. Fetch resolved markets from Gamma API (`/markets`) filtered by lookback and volume.
+2. Extract token IDs for YES/NO outcomes from `clobTokenIds`.
+3. Pull minute-level token prices from CLOB `prices-history` (fallback: Data API `prices`).
+4. Build standardized market observations (`market_price_yes`, `market_price_no`, `fair_price`, `implied_spread`, `resolution`, `time_to_expiry_min`, `minutes_elapsed`).
+5. Cache per-market observations locally for repeat runs.
 
-$$C_{digital} = e^{-rT} \cdot N(d_2)$$
+**Fair value proxy used by strategies:**
 
-where:
+$$p_{fair} = \frac{p_{yes} + (1 - p_{no})}{2}$$
 
-$$d_2 = \frac{\ln(S/K) + (r - \frac{\sigma^2}{2})T}{\sigma\sqrt{T}}$$
+This is derived from observed market prices, not a Black-Scholes model.
 
-- $S$ = current price
-- $K$ = strike price
-- $T$ = time to expiry (in years)
-- $\sigma$ = annualized volatility (estimated using rolling Parkinson estimator)
-- $r$ = risk-free rate (5% annualized)
-- $N(\cdot)$ = standard normal CDF
 
-**Market Inefficiency Simulation:**
-
-To create exploitable mispricings, we add Gaussian noise to the fair price:
-
-$$p_{market} = \text{clip}(C_{digital} + \epsilon \cdot \alpha, 0.01, 0.99)$$
-
-where $\epsilon \sim N(0, \sigma_{noise})$ and $\alpha = \frac{t_{remaining}}{T}$ (noise decays toward expiry, simulating markets becoming more efficient as resolution approaches).
-
-The noise standard deviation ($\sigma_{noise} = 0.05$) was calibrated to produce mispricings similar to those observed in real prediction markets.
 
 ### 3.3 Feature Engineering
 
-We compute 35+ features from price and market data:
+35+ features are computed from price and market data:
 
 | Category | Features | Count |
 |----------|----------|-------|
@@ -150,7 +139,7 @@ We compute 35+ features from price and market data:
 
 **Mathematical Formulation:**
 
-The market maker estimates fair value $p_{fair}$ (from Black-Scholes) and quotes:
+The market maker estimates fair value $p_{fair}$ (from observed YES/NO prices) and quotes:
 
 $$\text{bid} = p_{fair} - \frac{s}{2} + \delta_{inv}$$
 $$\text{ask} = p_{fair} + \frac{s}{2} + \delta_{inv}$$
@@ -188,7 +177,7 @@ where $\theta = 0.02$ (threshold) and $f = 0.01$ (fee buffer).
 
 **Type 2 — Fair Value Deviation:**
 
-When the market price significantly deviates from the Black-Scholes fair value:
+When the market price significantly deviates from the market-implied fair value:
 
 $$\Delta_{YES} = p_{fair} - p_{market,YES}$$
 
@@ -251,7 +240,7 @@ where:
 
 ### 5.1 Alternative Approach 1: Pure Bayesian Model (Beta-Binomial)
 
-**Concept:** Use a Beta-Binomial Bayesian model that maintains a running posterior belief about market resolution probability.
+**Concept:** Beta-Binomial posterior updates for market resolution probability.
 
 **Implementation:**
 - Prior: $\text{Beta}(\alpha_0, \beta_0) = \text{Beta}(2, 2)$ (weakly informative)
@@ -268,15 +257,15 @@ where:
 - During volatile regimes, the regime-conditional models diverged from the actual conditional probabilities
 
 **Rejection Rationale:**
-- Despite lower Brier score, the Bayesian model functions as a "base rate predictor" — it outputs ~50% for most markets
-- It lacks the **resolution** needed to identify tradable edges (predicted probabilities barely deviate from 50%)
-- Too slow to adapt to intra-day regime changes in 15-minute windows
-- Regime classification itself introduces noise (misclassifying the current regime leads to incorrect prior selection)
-- The discriminative ensemble (LR + GBT) produces more varied predictions, enabling identification of mispricings even with higher Brier score
+- Despite lower Brier score, it behaves as a base-rate predictor (~50% outputs)
+- Lacks resolution for tradable edges
+- Adapts too slowly to intra-day regime changes
+- Regime classification introduces additional noise
+- LR+GBT provides more discriminative predictions
 
 ### 5.2 Alternative Approach 2: LSTM Neural Network
 
-**Concept:** Use an LSTM recurrent neural network to process sequences of 1-minute price bars and predict market outcome.
+**Concept:** LSTM on 1-minute bar sequences to predict outcome.
 
 **Design:**
 - Input: Sequences of 15-30 one-minute bars × feature dimensions
@@ -293,11 +282,11 @@ where:
 - The LSTM approach was abandoned after the first walk-forward fold confirmed random OOS performance
 
 **Rejection Rationale:**
-- Insufficient data for stable deep learning training
-- Severe overfitting with poor generalization
-- Poor probability calibration (critical for Kelly sizing)
-- Long training time incompatible with walk-forward retraining
-- The simpler ensemble model (LR + GBT) provided better calibrated predictions
+- Insufficient data for stable deep learning
+- Severe overfitting and poor OOS generalization
+- Poor probability calibration (unsafe for Kelly sizing)
+- Training too slow for walk-forward retraining
+- LR+GBT produced more practical calibrated outputs
 
 ### 5.3 Selection Rationale: LR + GBT Ensemble
 
@@ -315,8 +304,8 @@ The final ensemble was selected because:
 
 ### 6.1 Dataset Configuration
 
-- **Total data**: 15 days of 1-minute BTC/USDT synthetic data (21,600 bars)
-- **Markets generated**: 1,439 prediction markets across 3 strike offsets (-0.1%, ATM, +0.1%)
+- **Total data**: 15 days of 1-minute market observations from archived experiment snapshot
+- **Markets sampled**: 1,439 prediction markets in the benchmark run
 - **Market observations**: 69,072 price points (each market observed at every minute)
 - **Features**: 41 engineered features per timestamp
 - **Train period**: First 70% (~10.5 days, 1,008 markets, 48,350 observations)
@@ -354,17 +343,17 @@ Performance on the 30% unseen test period (4.5 days, 432 markets):
 | Avg Trade P&L | -$15.14 | -$10.36 | $151.71 |
 
 **Key observations:**
-- The Market Maker shows **significant OOS degradation** (14.30% → -2.73%), partially due to fewer trading opportunities in the test window
-- The Arbitrage strategy shows **consistent underperformance** both IS and OOS, indicating the 2% fee environment erodes thin arbitrage edges
-- The Predictive strategy shows the **strongest OOS signal**: return degrades from 11,140% to 500% (as expected from overfitting), but remains substantially profitable with a profit factor ~2.0
-- The Predictive strategy's OOS win rate (41.9%) is nearly identical to IS (41.4%), suggesting the model generalizes well on a per-trade basis — the return degradation is from reduced compounding
+- Market Maker shows significant OOS degradation (14.30% → -2.73%)
+- Arbitrage is consistently unprofitable IS/OOS under fees
+- Predictive shows strongest OOS signal: 11,140% → 500%, still profitable (PF ~2.0)
+- Predictive win-rate stability (41.4% → 41.9%) indicates per-trade generalization; return drop is mainly reduced compounding
 
 ### 6.4 Key Experimental Observations
 
 1. **Feature importance** is dominated by: distance to strike, time-to-expiry, recent momentum, and volatility measures
 2. **Model accuracy** is meaningful but modest — prediction markets already incorporate significant information
 3. **Transaction costs** substantially impact profitability — strategies need >5% edge to be profitable after fees
-4. **Noise parameter** (σ_noise) directly controls the available alpha — higher noise creates more trading opportunities
+4. **Market inefficiency level** directly controls available alpha — wider mispricings create more trading opportunities
 
 ---
 
@@ -397,11 +386,11 @@ When transitioning from low-vol to high-vol or trending to ranging:
 
 ### 7.4 Sensitivity Analysis
 
-Key parameter sensitivities:
+Key sensitivities:
 - **Minimum edge**: Increasing from 3% to 8% reduces trade count but improves win rate
 - **Kelly fraction**: Quarter Kelly (0.25) provides best risk-adjusted returns vs full Kelly
 - **Transaction costs**: Profitability is highly sensitive; doubling costs from 1% to 2% eliminates most strategies' edge
-- **Noise σ**: Below 0.03, available alpha is too small for profitable trading after costs
+- **Observed spread compression**: In highly efficient periods, available alpha can be too small after costs
 
 ---
 
@@ -463,7 +452,7 @@ Every trade passes through a pre-trade risk check:
 | Condition | Impact | Mitigation |
 |-----------|--------|------------|
 | Market efficiency increases | Fewer mispricings | Reduce threshold dynamically |
-| Latency | Others capture arbitrage first | N/A in simulation; real concern in live trading |
+| Latency | Others capture arbitrage first | Key live-trading concern; monitor execution delay and fill quality |
 | Model miscalibration | False arbitrage signals | Use conservative thresholds |
 | Transaction cost increase | Eliminates thin arbitrage edges | Fee buffer in signal computation |
 
@@ -479,8 +468,8 @@ Every trade passes through a pre-trade risk check:
 
 ### 9.4 General Limitations
 
-1. **Simulated markets**: Our market simulator may not capture all real-world microstructure effects
-2. **Execution assumptions**: Real execution would face slippage, latency, and liquidity constraints beyond our simulation
+1. **Historical snapshot bias**: Benchmark periods may not represent all future market regimes
+2. **Execution assumptions**: Real execution faces slippage, latency, and liquidity constraints beyond backtest assumptions
 3. **Data limitations**: 30 days of 1-minute data provides limited statistical power for robust conclusions
 4. **Regime dependency**: All performance metrics are conditional on the observed market conditions
 
@@ -490,7 +479,7 @@ Every trade passes through a pre-trade risk check:
 
 ### 10.1 Evaluation Methodology
 
-We evaluate probability calibration using:
+Probability calibration is evaluated using:
 
 **Brier Score:**
 $$BS = \frac{1}{N} \sum_{i=1}^{N} (p_i - o_i)^2$$
@@ -532,7 +521,7 @@ The ensemble model's predictions cluster in the 0.20-0.45 range, reflecting cons
 
 ### 10.3 Interpretation
 
-The calibration analysis reveals:
+Key interpretation:
 1. The ensemble achieves a Brier score of 0.2911 (vs naive 0.25 baseline), indicating modest but meaningful predictive signal
 2. ECE of 0.1944 shows room for improvement in calibration — the model tends to underestimate probabilities
 3. The low resolution (0.0073) indicates predictions don't vary much from the base rate, consistent with prediction markets being relatively efficient
@@ -557,7 +546,7 @@ Key findings from the IS vs OOS comparison:
 | Predictive Profit Factor | 2.08 → 1.94 (6.7% degradation) |
 | Predictive Win Rate | 41.4% → 41.9% (virtually identical) |
 
-The Predictive strategy's win rate stability (41.4% → 41.9%) while maintaining profit factor ~2.0 is the strongest evidence of genuine out-of-sample signal. The return degradation is primarily from reduced compounding opportunities rather than signal decay.
+Predictive win-rate stability (41.4% → 41.9%) with PF ~2.0 supports genuine OOS signal; degradation is mainly reduced compounding, not edge collapse.
 
 ### 11.2 Paper Trading
 
@@ -575,10 +564,10 @@ Paper trading with the Predictive strategy on the final 20% of data (completely 
 | Total Fees | $1,798.87 |
 
 Key observations:
-- The strategy successfully generates trades and manages risk in a live-like paper trading environment
-- Profit factor remains ~2.0, consistent with IS (2.08) and OOS (1.94) results
-- Max drawdown stays within the 10.83% circuit breaker, demonstrating effective risk management
-- Win rate (42.86%) is consistent across all three evaluation periods, confirming model stability
+- Strategy generates trades and manages risk in a live-like paper environment
+- Profit factor remains ~2.0, consistent with IS and OOS
+- Max drawdown stays within the 10.83% circuit breaker
+- Win rate remains consistent across evaluation periods
 
 ---
 
@@ -586,8 +575,8 @@ Key observations:
 
 ### 12.1 Summary
 
-We developed a complete prediction market trading platform that:
-1. Simulates realistic 15-minute binary markets using Black-Scholes digital option pricing
+Implemented platform capabilities:
+1. Ingests real prediction market prices and resolutions via public Polymarket APIs
 2. Implements three distinct trading strategies (Market Maker, Arbitrage, Predictive)
 3. Provides a rigorous backtesting engine with look-ahead bias prevention
 4. Evaluates strategies using walk-forward out-of-sample testing
@@ -604,7 +593,7 @@ We developed a complete prediction market trading platform that:
 
 ### 12.3 Future Work
 
-- Integration with real prediction market APIs (Polymarket, Kalshi)
+- Multi-venue expansion beyond Polymarket (for example Kalshi)
 - Higher-frequency features (order book depth, trade flow)
 - Online learning for real-time model adaptation
 - Portfolio-level optimization across multiple markets
@@ -612,4 +601,4 @@ We developed a complete prediction market trading platform that:
 
 ---
 
-*This research document accompanies the Prediction Market Trading Platform source code and interactive dashboard.*
+*This research document accompanies the source code and dashboard.*

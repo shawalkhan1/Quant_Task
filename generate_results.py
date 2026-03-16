@@ -27,8 +27,6 @@ warnings.filterwarnings("ignore")
 from config.settings import (
     BACKTEST_RESULTS_DIR, FORWARD_RESULTS_DIR, TRADE_LOGS_DIR, RESULTS_DIR,
 )
-from src.data.fetcher import DataFetcher
-from src.data.market_simulator import PredictionMarketSimulator
 from src.data.features import FeatureEngine
 from src.backtesting.engine import BacktestEngine
 from src.strategies.market_maker import MarketMakerStrategy
@@ -65,23 +63,46 @@ def save_json(data, path):
 
 
 # ==========================================================
-# STEP 1: Generate Data
+# STEP 1: Fetch Real Polymarket Data
 # ==========================================================
 print("=" * 60)
-print("STEP 1: Generating Data")
+print("STEP 1: Fetching Real Polymarket Data")
 print("=" * 60)
 
-fetcher = DataFetcher()
-# Use 15 days for meaningful walk-forward testing
-price_data = fetcher._generate_synthetic_data("BTC/USDT", "1m", days=15)
-print(f"  Price data: {len(price_data)} bars ({price_data.index[0]} → {price_data.index[-1]})")
+from src.data.polymarket_fetcher import PolymarketFetcher
 
-# Generate multi-strike markets for cross-market arbitrage
-sim = PredictionMarketSimulator(seed=42)
-markets = sim.generate_multi_strike_markets(price_data, offsets=[-0.001, 0.0, 0.001], symbol="BTC/USDT")
-print(f"  Markets: {len(markets)} observations, {markets['market_id'].nunique()} unique markets")
+poly = PolymarketFetcher()
 
-# Features
+print("  Fetching resolved markets from Polymarket API...")
+markets = poly.fetch_dataset_for_backtest(
+    days_back=30,          # 30 days of resolved markets
+    min_volume=5000.0,     # Only markets with $5k+ volume (liquid enough)
+    max_markets=80,        # Up to 80 resolved markets
+    use_cache=True,        # Cache timeseries locally for reruns
+)
+
+if markets.empty:
+    raise RuntimeError(
+        "Polymarket API returned no data. Live market data is required; "
+        "no synthetic fallback is allowed."
+    )
+else:
+    # Build a synthetic price_data stub from market_price_yes timeseries
+    # (needed for the FeatureEngine which expects OHLCV — we proxy with YES price)
+    ts_index = markets.index.unique().sort_values()
+    yes_series = markets.groupby(markets.index)["market_price_yes"].mean()
+    price_data = pd.DataFrame({
+        "open":   yes_series,
+        "high":   yes_series * 1.001,
+        "low":    yes_series * 0.999,
+        "close":  yes_series,
+        "volume": markets.groupby(markets.index)["volume_usd"].sum().fillna(1.0),
+    })
+    print(f"  Polymarket data: {len(markets):,} observations, "
+          f"{markets['market_id'].nunique()} unique markets")
+    print(f"  Date range: {markets.index.min()} → {markets.index.max()}")
+
+# Build features on the price proxy (market probability as price)
 engine = FeatureEngine()
 features = engine.compute_all_features(price_data)
 print(f"  Features: {features.shape[1]} columns, {len(features)} rows")

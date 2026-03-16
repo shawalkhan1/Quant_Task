@@ -1,0 +1,37 @@
+# VCS
+.git
+.gitignore
+
+# Python cache/artifacts
+__pycache__
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info
+.pytest_cache
+.coverage
+htmlcov
+
+# Virtual environments
+venv
+.venv
+env
+
+# Editor files
+.vscode
+.idea
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Runtime outputs (mounted as volumes)
+data/raw
+data/processed
+data/markets
+results
+logs
+
+# Build artifacts
+dist
+build

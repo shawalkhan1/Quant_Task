@@ -1,88 +1,81 @@
-"""Tests for the data layer — fetcher, market simulator, features, dataset."""
+"""Tests for the data layer — live loader, features, and dataset utilities."""
 
 import pytest
 import pandas as pd
 import numpy as np
-from datetime import datetime, timedelta
 
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from src.data.fetcher import DataFetcher
-from src.data.market_simulator import PredictionMarketSimulator
+import src.data.live_market_loader as live_market_loader
 from src.data.features import FeatureEngine
 from src.data.dataset import TimeSeriesDataset
 
 
 # --------------------------------------------------------------------------- #
-#  DataFetcher tests
+#  Live loader contract tests
 # --------------------------------------------------------------------------- #
-class TestDataFetcher:
-    """Test the DataFetcher synthetic data generation."""
-
-    def test_generate_synthetic_btc(self):
-        fetcher = DataFetcher()
-        df = fetcher._generate_synthetic_data("BTC/USDT", "1m", days=2)
-
-        assert isinstance(df, pd.DataFrame)
-        assert len(df) > 0
-        assert all(c in df.columns for c in ["open", "high", "low", "close", "volume"])
-        assert df["high"].ge(df["low"]).all()
-        assert df["high"].ge(df["open"]).all()
-        assert df["high"].ge(df["close"]).all()
-        assert df["low"].le(df["open"]).all()
-        assert df["low"].le(df["close"]).all()
-
-    def test_synthetic_length(self):
-        fetcher = DataFetcher()
-        df = fetcher._generate_synthetic_data("ETH/USDT", "1m", days=1)
-        expected = 24 * 60  # one bar per minute
-        assert abs(len(df) - expected) <= 1
-
-    def test_synthetic_prices_positive(self):
-        fetcher = DataFetcher()
-        df = fetcher._generate_synthetic_data("BTC/USDT", "1m", days=1)
-        assert (df["close"] > 0).all()
-        assert (df["volume"] > 0).all()
-
-
-# --------------------------------------------------------------------------- #
-#  PredictionMarketSimulator tests
-# --------------------------------------------------------------------------- #
-class TestMarketSimulator:
-    """Test prediction market generation."""
+class TestLiveLoader:
+    """Test live Polymarket loader contracts without real network dependency."""
 
     @pytest.fixture
-    def price_data(self):
-        fetcher = DataFetcher()
-        return fetcher._generate_synthetic_data("BTC/USDT", "1m", days=2)
+    def sample_market_data(self):
+        idx = pd.date_range("2026-01-01", periods=30, freq="min", tz="UTC")
+        return pd.DataFrame(
+            {
+                "market_id": ["m1"] * 15 + ["m2"] * 15,
+                "market_price_yes": np.linspace(0.4, 0.7, 30),
+                "market_price_no": np.linspace(0.6, 0.3, 30),
+                "fair_price": np.linspace(0.4, 0.7, 30),
+                "resolution": [1] * 15 + [0] * 15,
+                "time_to_expiry_min": list(range(15, 0, -1)) + list(range(15, 0, -1)),
+                "minutes_elapsed": list(range(15)) + list(range(15)),
+                "volume_usd": np.random.uniform(100, 2000, 30),
+                "liquidity_usd": np.random.uniform(100, 2000, 30),
+                "symbol": ["Polymarket"] * 30,
+            },
+            index=idx,
+        )
 
-    def test_generate_markets(self, price_data):
-        sim = PredictionMarketSimulator()
-        markets = sim.generate_markets(price_data)
-        assert isinstance(markets, pd.DataFrame)
-        assert len(markets) > 0
+    def test_build_price_proxy(self, sample_market_data):
+        price_data = live_market_loader.build_price_proxy_from_markets(sample_market_data)
+        assert isinstance(price_data, pd.DataFrame)
+        assert len(price_data) > 0
+        assert all(c in price_data.columns for c in ["open", "high", "low", "close", "volume"])
+        assert price_data["high"].ge(price_data["low"]).all()
 
-    def test_market_columns(self, price_data):
-        sim = PredictionMarketSimulator()
-        markets = sim.generate_markets(price_data)
-        required = [
-            "market_id", "fair_price", "market_price_yes",
-            "market_price_no", "resolution",
-        ]
-        for col in required:
-            assert col in markets.columns, f"Missing column: {col}"
+    def test_load_live_polymarket_data_contract(self, monkeypatch, sample_market_data):
+        class _DummyFetcher:
+            def fetch_dataset_for_backtest(self, **kwargs):
+                return sample_market_data
 
-    def test_market_prices_bounded(self, price_data):
-        sim = PredictionMarketSimulator()
-        markets = sim.generate_markets(price_data)
-        assert markets["market_price_yes"].between(0, 1).all()
-        assert markets["market_price_no"].between(0, 1).all()
+        monkeypatch.setattr(live_market_loader, "PolymarketFetcher", _DummyFetcher)
+        price_data, market_data, features = live_market_loader.load_live_polymarket_data(
+            days_back=7,
+            min_volume=100.0,
+            max_markets=5,
+            use_cache=False,
+        )
 
-    def test_resolution_binary(self, price_data):
-        sim = PredictionMarketSimulator()
-        markets = sim.generate_markets(price_data)
-        assert markets["resolution"].isin([0.0, 1.0]).all()
+        assert len(price_data) > 0
+        assert len(market_data) > 0
+        assert len(features) > 0
+        assert "market_price_yes" in market_data.columns
+        assert "resolution" in market_data.columns
+
+    def test_load_live_polymarket_data_empty_raises(self, monkeypatch):
+        class _DummyFetcher:
+            def fetch_dataset_for_backtest(self, **kwargs):
+                return pd.DataFrame()
+
+        monkeypatch.setattr(live_market_loader, "PolymarketFetcher", _DummyFetcher)
+        with pytest.raises(RuntimeError):
+            live_market_loader.load_live_polymarket_data(
+                days_back=7,
+                min_volume=100.0,
+                max_markets=5,
+                use_cache=False,
+            )
 
 
 # --------------------------------------------------------------------------- #

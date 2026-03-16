@@ -84,8 +84,8 @@ class ArbitrageStrategy(BaseStrategy):
         market_price_no = market_row.get("market_price_no", 0.5)
         fair_price = market_row.get("fair_price", 0.5)
 
-        # Timing constraints
-        if time_to_expiry <= 1 or time_to_expiry > 14:
+        # Don't trade too close to expiry (need at least 2 min; no upper cap for Polymarket)
+        if time_to_expiry <= 2:
             return None
 
         # Skip if already positioned

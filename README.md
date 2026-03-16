@@ -2,9 +2,25 @@
 
 A complete research and trading platform for short-horizon crypto prediction markets, inspired by Polymarket's 15-minute markets.
 
+## Required vs Built
+
+Required items were: live market data ingestion, 3 strategies, event-driven backtesting, forward testing, calibration analysis, dashboard, reproducible outputs, tests, and Docker runtime.
+
+Built system covers all of these with live Polymarket APIs as the runtime market source.
+
+For a precise requirement-to-implementation map, see [DELIVERABLE_STATUS.md](DELIVERABLE_STATUS.md).
+
+## Current Working State
+
+- Runtime data path is live Polymarket (Gamma, CLOB, Data API).
+- Frontend pages load through [src/data/live_market_loader.py](src/data/live_market_loader.py).
+- Results generation runs through [generate_results.py](generate_results.py) and writes outputs to [results](results).
+- Automated tests are passing.
+- Docker web service runs with health checks; one-shot jobs service runs without health checks to avoid false unhealthy flags.
+
 ## Features
 
-- **Data Layer** — Fetches crypto OHLCV data (Binance / synthetic fallback), simulates binary prediction markets using Black-Scholes digital option pricing
+- **Data Layer** — Fetches live prediction market data from Polymarket public APIs (Gamma, CLOB, Data API), with local caching
 - **Backtesting Engine** — Event-driven, bar-by-bar execution with look-ahead bias prevention, transaction costs, slippage, and a drawdown circuit breaker
 - **3 Trading Strategies**
   - *Market Maker* — Dynamic bid/ask spread with inventory control
@@ -22,8 +38,8 @@ A complete research and trading platform for short-horizon crypto prediction mar
 │   └── settings.py              # Global configuration
 ├── src/
 │   ├── data/
-│   │   ├── fetcher.py           # Crypto data fetcher (Binance + synthetic)
-│   │   ├── market_simulator.py  # Binary market generator (Black-Scholes)
+│   │   ├── polymarket_fetcher.py # Live Polymarket market/timeseries fetcher
+│   │   ├── live_market_loader.py # Shared loader used by frontend pages
 │   │   ├── features.py          # 35+ feature engineering pipeline
 │   │   └── dataset.py           # Time-series dataset with temporal splits
 │   ├── backtesting/
@@ -98,6 +114,70 @@ The app opens in your browser. Use the sidebar to navigate between pages:
 pytest tests/ -v
 ```
 
+## Docker
+
+This project includes a production-style Docker setup for both the Streamlit UI
+and batch result generation.
+
+### Included files
+
+- `Dockerfile` — single runtime image (web + jobs)
+- `docker-compose.yml` — orchestrates `web` and `jobs` services
+- `.env.example` — runtime configuration template
+- `docker/entrypoint.sh` — startup DNS/HTTP checks for Polymarket endpoints
+- `docker/healthcheck.py` — container health probe for Streamlit
+- `docker/smoke_test.py` — in-container live-data smoke test
+
+### 1. Prepare environment
+
+```bash
+cp .env.example .env
+```
+
+Optional: set `HTTP_PROXY`, `HTTPS_PROXY`, and `NO_PROXY` in `.env` if your
+network requires a proxy.
+
+### 2. Build image
+
+```bash
+docker compose build
+```
+
+### 3. Run dashboard container
+
+```bash
+docker compose up -d web
+```
+
+App will be available at `http://localhost:8501`.
+
+### 4. Run batch job container (generate results)
+
+```bash
+docker compose run --rm --profile jobs jobs
+```
+
+### 5. Run container smoke test
+
+```bash
+docker compose run --rm web python docker/smoke_test.py
+```
+
+### 6. Logs and shutdown
+
+```bash
+docker compose logs -f web
+docker compose down
+```
+
+### Notes
+
+- `./data` and `./results` are mounted into the container, so cache and result
+  files persist across restarts.
+- The image runs as a non-root user.
+- Startup checks validate DNS and HTTPS connectivity to Polymarket APIs.
+- To bypass startup checks temporarily, set `SKIP_STARTUP_CHECKS=true` in `.env`.
+
 ## Configuration
 
 All key parameters are in `config/settings.py`:
@@ -115,7 +195,7 @@ All key parameters are in `config/settings.py`:
 ## Strategies
 
 ### Market Maker
-Quotes dynamic bid/ask spreads around Black-Scholes fair value. Spread widens with volatility; inventory skew prevents accumulation.
+Quotes dynamic bid/ask spreads around observed market-implied fair value. Spread widens with volatility; inventory skew prevents accumulation.
 
 ### Arbitrage
 Detects two types of inefficiency: (1) YES + NO prices sum to less than 1, (2) market price deviates significantly from fair value.
@@ -139,7 +219,12 @@ See [`research/RESEARCH_DOCUMENT.md`](research/RESEARCH_DOCUMENT.md) for the ful
 - **Python 3.11+**
 - **pandas / numpy / scipy** — Data processing & statistics
 - **scikit-learn** — ML models
-- **ccxt** — Exchange data (with synthetic fallback)
+- **requests** — Polymarket public API integration
 - **Plotly** — Interactive charts
 - **Streamlit** — Dashboard framework
 - **pytest** — Testing
+
+## Data Access Note
+
+Polymarket market data is publicly accessible via no-auth endpoints.
+Reference: https://docs.polymarket.com/api-reference/introduction

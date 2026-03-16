@@ -31,3 +31,9 @@ Thumbs.db
 data/raw/
 data/processed/
 data/markets/
+
+# Local runtime config
+.env
+
+# Local logs
+logs/

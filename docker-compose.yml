@@ -1,0 +1,51 @@
+name: yahya
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: yahya-app:local
+    container_name: yahya-web
+    restart: unless-stopped
+    ports:
+      - "${STREAMLIT_PORT:-8501}:8501"
+    env_file:
+      - .env
+    environment:
+      STREAMLIT_SERVER_PORT: "8501"
+      STREAMLIT_SERVER_ADDRESS: "0.0.0.0"
+      APP_ENV: "docker"
+      LOG_LEVEL: "${LOG_LEVEL:-INFO}"
+      MIN_VOLUME_DEFAULT: "${MIN_VOLUME_DEFAULT:-100}"
+      MAX_MARKETS_DEFAULT: "${MAX_MARKETS_DEFAULT:-80}"
+      LOOKBACK_DAYS_DEFAULT: "${LOOKBACK_DAYS_DEFAULT:-30}"
+      SKIP_STARTUP_CHECKS: "${SKIP_STARTUP_CHECKS:-false}"
+      HTTP_PROXY: "${HTTP_PROXY:-}"
+      HTTPS_PROXY: "${HTTPS_PROXY:-}"
+      NO_PROXY: "${NO_PROXY:-localhost,127.0.0.1}"
+    volumes:
+      - ./data:/app/data
+      - ./results:/app/results
+      - ./logs:/app/logs
+
+  jobs:
+    image: yahya-app:local
+    container_name: yahya-jobs
+    profiles: ["jobs"]
+    healthcheck:
+      disable: true
+    env_file:
+      - .env
+    environment:
+      APP_ENV: "docker"
+      LOG_LEVEL: "${LOG_LEVEL:-INFO}"
+      SKIP_STARTUP_CHECKS: "${SKIP_STARTUP_CHECKS:-false}"
+      HTTP_PROXY: "${HTTP_PROXY:-}"
+      HTTPS_PROXY: "${HTTPS_PROXY:-}"
+      NO_PROXY: "${NO_PROXY:-localhost,127.0.0.1}"
+    volumes:
+      - ./data:/app/data
+      - ./results:/app/results
+      - ./logs:/app/logs
+    command: ["python", "generate_results.py"]

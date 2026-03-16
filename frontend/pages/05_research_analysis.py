@@ -14,27 +14,22 @@ st.title("📐 Research Analysis")
 st.markdown("Probability calibration, feature importance, and regime analysis.")
 st.markdown("---")
 
-symbol = st.sidebar.selectbox("Symbol", ["BTC/USDT", "ETH/USDT"], key="res_sym")
-data_days = st.sidebar.slider("Data Days", 5, 30, 15, key="res_days")
+data_days = st.sidebar.slider("Lookback Days", 3, 60, 30, key="res_days")
+min_volume = st.sidebar.number_input("Min Market Volume (USD)", 100.0, 1000000.0, 5000.0, 100.0, key="res_min_vol")
+max_markets = st.sidebar.slider("Max Markets", 10, 200, 80, key="res_max_mkts")
 
 
 @st.cache_data(ttl=3600)
-def load_and_train(symbol, days):
-    from src.data.fetcher import DataFetcher
-    from src.data.market_simulator import PredictionMarketSimulator
-    from src.data.features import FeatureEngine
+def load_and_train(days, min_volume, max_markets):
+    from src.data.live_market_loader import load_live_polymarket_data
     from src.strategies.predictive import PredictiveStrategy
-    from src.models.calibration import CalibrationAnalyzer
 
-    fetcher = DataFetcher()
-    price_data = fetcher.fetch_ohlcv(symbol=symbol, days=days)
-
-    simulator = PredictionMarketSimulator(noise_std=0.05)
-    market_data = simulator.generate_markets(price_data, symbol=symbol)
-
-    fe = FeatureEngine()
-    features = fe.compute_all_features(price_data)
-    features = fe.add_market_features(features, market_data)
+    price_data, market_data, features = load_live_polymarket_data(
+        days_back=days,
+        min_volume=min_volume,
+        max_markets=max_markets,
+        use_cache=True,
+    )
 
     # Train/Test split
     n = len(market_data)
@@ -85,7 +80,7 @@ def load_and_train(symbol, days):
 
 if st.button("🔬 Run Analysis", type="primary"):
     with st.spinner("Training models and analyzing..."):
-        result = load_and_train(symbol, data_days)
+        result = load_and_train(data_days, min_volume, max_markets)
         st.session_state["research_data"] = result
 
 if "research_data" in st.session_state:

@@ -11,32 +11,26 @@ import numpy as np
 
 st.set_page_config(page_title="Strategy Comparison", page_icon="⚖️", layout="wide")
 st.title("⚖️ Strategy Comparison")
-st.markdown("Run and compare all strategies on the same dataset.")
+st.markdown("Run and compare all strategies on the same live Polymarket dataset.")
 st.markdown("---")
 
 # ── Controls ──
-symbol = st.sidebar.selectbox("Symbol", ["BTC/USDT", "ETH/USDT"], key="cmp_sym")
-data_days = st.sidebar.slider("Data Days", 5, 30, 15, key="cmp_days")
+data_days = st.sidebar.slider("Lookback Days", 3, 60, 30, key="cmp_days")
+min_volume = st.sidebar.number_input("Min Market Volume (USD)", 100.0, 1000000.0, 5000.0, 100.0, key="cmp_min_vol")
+max_markets = st.sidebar.slider("Max Markets", 10, 200, 80, key="cmp_max_mkts")
 initial_capital = st.sidebar.number_input("Initial Capital ($)", 1000, 100000, 10000, 1000, key="cmp_cap")
 
 
 @st.cache_data(ttl=3600)
-def load_data(symbol, days):
-    from src.data.fetcher import DataFetcher
-    from src.data.market_simulator import PredictionMarketSimulator
-    from src.data.features import FeatureEngine
+def load_data(days, min_volume, max_markets):
+    from src.data.live_market_loader import load_live_polymarket_data
 
-    fetcher = DataFetcher()
-    price_data = fetcher.fetch_ohlcv(symbol=symbol, days=days)
-
-    simulator = PredictionMarketSimulator(noise_std=0.05)
-    market_data = simulator.generate_markets(price_data, symbol=symbol)
-
-    fe = FeatureEngine()
-    features = fe.compute_all_features(price_data)
-    features = fe.add_market_features(features, market_data)
-
-    return price_data, market_data, features
+    return load_live_polymarket_data(
+        days_back=days,
+        min_volume=min_volume,
+        max_markets=max_markets,
+        use_cache=True,
+    )
 
 
 def run_all_strategies(price_data, market_data, features, initial_capital):
@@ -76,7 +70,7 @@ def run_all_strategies(price_data, market_data, features, initial_capital):
 
 if st.button("🏁 Run All Strategies", type="primary"):
     with st.spinner("Running all three strategies..."):
-        price_data, market_data, features = load_data(symbol, data_days)
+        price_data, market_data, features = load_data(data_days, min_volume, max_markets)
         results = run_all_strategies(price_data, market_data, features, initial_capital)
         st.session_state["comparison_results"] = results
     st.success("All strategies complete!")

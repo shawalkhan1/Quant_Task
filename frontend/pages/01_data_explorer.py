@@ -11,45 +11,40 @@ import numpy as np
 
 st.set_page_config(page_title="Data Explorer", page_icon="🔍", layout="wide")
 st.title("🔍 Data Explorer")
-st.markdown("Explore cryptocurrency price data, simulated prediction markets, and engineered features.")
+st.markdown("Explore live Polymarket markets, price proxy series, and engineered features.")
 st.markdown("---")
 
 # ── Controls ──
 col1, col2, col3 = st.columns(3)
 with col1:
-    symbol = st.selectbox("Symbol", ["BTC/USDT", "ETH/USDT"], index=0)
+    days = st.slider("Lookback Days", 3, 60, 15)
 with col2:
-    days = st.slider("Days of Data", 5, 30, 15)
+    min_volume = st.number_input("Min Market Volume (USD)", 100.0, 1000000.0, 5000.0, 100.0)
 with col3:
-    noise_std = st.slider("Market Noise σ", 0.01, 0.15, 0.05, 0.01)
+    max_markets = st.slider("Max Markets", 10, 200, 80)
 
 
 @st.cache_data(ttl=3600)
-def load_data(symbol, days, noise_std):
-    from src.data.fetcher import DataFetcher
-    from src.data.market_simulator import PredictionMarketSimulator
-    from src.data.features import FeatureEngine
+def load_data(days, min_volume, max_markets):
+    from src.data.live_market_loader import load_live_polymarket_data
 
-    fetcher = DataFetcher()
-    price_data = fetcher.fetch_ohlcv(symbol=symbol, days=days)
-
-    simulator = PredictionMarketSimulator(noise_std=noise_std)
-    market_data = simulator.generate_markets(price_data, symbol=symbol)
-
-    engine = FeatureEngine()
-    features = engine.compute_all_features(price_data)
-
-    return price_data, market_data, features
+    return load_live_polymarket_data(
+        days_back=days,
+        min_volume=min_volume,
+        max_markets=max_markets,
+        use_cache=True,
+    )
 
 
 if st.button("📥 Load Data", type="primary"):
     with st.spinner("Fetching and processing data..."):
-        price_data, market_data, features = load_data(symbol, days, noise_std)
+        price_data, market_data, features = load_data(days, min_volume, max_markets)
         st.session_state["price_data"] = price_data
         st.session_state["market_data"] = market_data
         st.session_state["features"] = features
-        st.session_state["symbol"] = symbol
-    st.success(f"Loaded {len(price_data)} price bars, {len(market_data)} market observations")
+    st.success(
+        f"Loaded {len(price_data)} price proxy bars, {len(market_data)} live market observations"
+    )
 
 if "price_data" in st.session_state:
     price_data = st.session_state["price_data"]
@@ -61,7 +56,7 @@ if "price_data" in st.session_state:
     from src.visualization.charts import candlestick_chart
     # Downsample for display
     display_price = price_data.iloc[::15]  # Every 15 min
-    fig = candlestick_chart(display_price, title=f"{symbol} Price (15-min)")
+    fig = candlestick_chart(display_price, title="Polymarket YES-Price Proxy (15-min)")
     st.plotly_chart(fig, use_container_width=True)
 
     # ── Data Stats ──
@@ -71,7 +66,7 @@ if "price_data" in st.session_state:
     with col2:
         st.metric("Date Range", f"{price_data.index[0].strftime('%Y-%m-%d')} → {price_data.index[-1].strftime('%Y-%m-%d')}")
     with col3:
-        st.metric("Avg Price", f"${price_data['close'].mean():,.2f}")
+        st.metric("Avg YES Probability", f"{price_data['close'].mean():.3f}")
     with col4:
         st.metric("Volatility (ann.)", f"{price_data['close'].pct_change().std() * np.sqrt(525600):.1%}")
 
@@ -87,7 +82,8 @@ if "price_data" in st.session_state:
         with col2:
             st.metric("YES Resolution Rate", f"{resolution_rate:.1%}")
         with col3:
-            st.metric("Market Duration", "15 minutes")
+            duration_min = market_data.groupby("market_id")["total_duration_min"].first().median()
+            st.metric("Median Duration", f"{duration_min:.1f} min")
 
         # Market price distribution
         from src.visualization.charts import probability_comparison_chart

@@ -84,7 +84,7 @@ short-horizon crypto prediction markets.
 
 | Component | Description |
 |-----------|-------------|
-| **Data Layer** | Fetches crypto OHLCV data, generates simulated prediction markets using Black-Scholes digital pricing |
+| **Data Layer** | Fetches live Polymarket market metadata and token price histories via public APIs |
 | **Backtesting Engine** | Event-driven, bar-by-bar simulation with position tracking, settlement, and transaction costs |
 | **Strategy Framework** | Market Maker, Arbitrage, and Predictive (ML ensemble) strategies |
 | **Forward Testing** | Walk-forward optimization with rolling out-of-sample evaluation |

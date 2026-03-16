@@ -11,7 +11,7 @@ import numpy as np
 
 st.set_page_config(page_title="Backtesting", page_icon="📈", layout="wide")
 st.title("📈 Backtesting Engine")
-st.markdown("Run strategy backtests on historical prediction market data.")
+st.markdown("Run strategy backtests on live Polymarket market history.")
 st.markdown("---")
 
 # ── Sidebar Controls ──
@@ -42,26 +42,21 @@ else:  # Predictive
 
 # Data loading
 st.sidebar.markdown("---")
-symbol = st.sidebar.selectbox("Symbol", ["BTC/USDT", "ETH/USDT"], key="bt_symbol")
-data_days = st.sidebar.slider("Data Days", 5, 30, 15, key="bt_days")
+data_days = st.sidebar.slider("Lookback Days", 3, 60, 30, key="bt_days")
+min_volume = st.sidebar.number_input("Min Market Volume (USD)", 100.0, 1000000.0, 5000.0, 100.0, key="bt_min_vol")
+max_markets = st.sidebar.slider("Max Markets", 10, 200, 80, key="bt_max_mkts")
 
 
 @st.cache_data(ttl=3600)
-def load_data_for_backtest(symbol, days):
-    from src.data.fetcher import DataFetcher
-    from src.data.market_simulator import PredictionMarketSimulator
-    from src.data.features import FeatureEngine
+def load_data_for_backtest(days, min_volume, max_markets):
+    from src.data.live_market_loader import load_live_polymarket_data
 
-    fetcher = DataFetcher()
-    price_data = fetcher.fetch_ohlcv(symbol=symbol, days=days)
-
-    simulator = PredictionMarketSimulator(noise_std=0.05)
-    market_data = simulator.generate_markets(price_data, symbol=symbol)
-
-    engine = FeatureEngine()
-    features = engine.compute_all_features(price_data)
-
-    return price_data, market_data, features
+    return load_live_polymarket_data(
+        days_back=days,
+        min_volume=min_volume,
+        max_markets=max_markets,
+        use_cache=True,
+    )
 
 
 def run_backtest(strategy_name, price_data, market_data, features, train_ratio):
@@ -136,7 +131,7 @@ def run_backtest(strategy_name, price_data, market_data, features, train_ratio):
 # ── Main Content ──
 if st.button("🚀 Run Backtest", type="primary"):
     with st.spinner("Loading data and running backtest..."):
-        price_data, market_data, features = load_data_for_backtest(symbol, data_days)
+        price_data, market_data, features = load_data_for_backtest(data_days, min_volume, max_markets)
         results = run_backtest(strategy_name, price_data, market_data, features, train_ratio)
         st.session_state["backtest_results"] = results
         st.session_state["backtest_strategy"] = strategy_name
