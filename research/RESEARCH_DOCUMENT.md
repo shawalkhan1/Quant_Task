@@ -34,10 +34,12 @@ This document summarizes a quantitative trading platform for 15-minute crypto pr
 The platform includes backtesting, walk-forward OOS testing, calibration analysis, and a Streamlit dashboard.
 
 **Key findings:**
-- The Predictive strategy achieves the best risk-adjusted returns when properly calibrated
-- The Arbitrage strategy provides the most consistent returns with lowest variance
-- The Market Maker strategy profits from spread capture but is sensitive to inventory risk
-- Walk-forward analysis reveals mild performance degradation out-of-sample, confirming the strategies are not severely overfit
+- Strategy performance is regime- and sample-dependent; live-data reruns can materially change ranking
+- Arbitrage currently shows the strongest out-of-sample results in the latest generated snapshot
+- Market Maker remains highly sensitive to spread dynamics and often has low trade frequency under current thresholds
+- Predictive performance depends heavily on available early-window samples and probability calibration quality
+
+For the latest numeric results, use the generated artifacts in `results/` (especially `comparison_summary.csv`, `calibration_results.json`, and `bayesian_alternative_results.json`).
 
 ---
 

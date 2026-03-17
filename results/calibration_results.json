@@ -1,50 +1,50 @@
 {
   "ensemble": {
-    "brier_score": 0.25,
-    "ece": 0.1939,
+    "brier_score": 0.2335,
+    "ece": 0.247,
     "decomposition": {
-      "brier_score": 0.25,
-      "reliability": 0.0376,
-      "resolution": 0.0,
-      "uncertainty": 0.2124,
-      "skill_score": -0.177
+      "brier_score": 0.2335,
+      "reliability": 0.068,
+      "resolution": 0.0225,
+      "uncertainty": 0.1901,
+      "skill_score": -0.2282
     },
     "reliability_diagram": [
       {
         "bin_center": 0.05,
-        "mean_predicted": 0.05,
-        "fraction_positive": NaN,
-        "count": 0
+        "mean_predicted": 0.039855513417968856,
+        "fraction_positive": 0.35714285714285715,
+        "count": 14
       },
       {
         "bin_center": 0.15000000000000002,
-        "mean_predicted": 0.15000000000000002,
-        "fraction_positive": NaN,
-        "count": 0
+        "mean_predicted": 0.16259496848953478,
+        "fraction_positive": 0.3333333333333333,
+        "count": 21
       },
       {
         "bin_center": 0.25,
-        "mean_predicted": 0.25,
-        "fraction_positive": NaN,
-        "count": 0
+        "mean_predicted": 0.22117389479296862,
+        "fraction_positive": 0.0,
+        "count": 7
       },
       {
         "bin_center": 0.35000000000000003,
-        "mean_predicted": 0.35000000000000003,
-        "fraction_positive": NaN,
-        "count": 0
+        "mean_predicted": 0.33758021119148435,
+        "fraction_positive": 0.0,
+        "count": 1
       },
       {
         "bin_center": 0.45,
-        "mean_predicted": 0.45,
-        "fraction_positive": NaN,
-        "count": 0
+        "mean_predicted": 0.4237339031061452,
+        "fraction_positive": 0.0,
+        "count": 4
       },
       {
         "bin_center": 0.55,
-        "mean_predicted": 0.5,
-        "fraction_positive": 0.30612244897959184,
-        "count": 49
+        "mean_predicted": 0.55,
+        "fraction_positive": NaN,
+        "count": 0
       },
       {
         "bin_center": 0.6500000000000001,
@@ -73,14 +73,14 @@
     ]
   },
   "bayesian": {
-    "brier_score": 0.2147,
-    "ece": 0.1044,
+    "brier_score": 0.1956,
+    "ece": 0.1659,
     "decomposition": {
-      "brier_score": 0.2147,
-      "reliability": 0.013,
-      "resolution": 0.0114,
-      "uncertainty": 0.2124,
-      "skill_score": -0.0109
+      "brier_score": 0.1956,
+      "reliability": 0.0297,
+      "resolution": 0.0257,
+      "uncertainty": 0.1901,
+      "skill_score": -0.0285
     },
     "reliability_diagram": [
       {
@@ -97,15 +97,15 @@
       },
       {
         "bin_center": 0.25,
-        "mean_predicted": 0.29402184109141316,
-        "fraction_positive": 0.4666666666666667,
-        "count": 15
+        "mean_predicted": 0.29599822910115375,
+        "fraction_positive": 0.5454545454545454,
+        "count": 11
       },
       {
         "bin_center": 0.35000000000000003,
-        "mean_predicted": 0.3095762761754864,
-        "fraction_positive": 0.23529411764705882,
-        "count": 34
+        "mean_predicted": 0.30708486381089145,
+        "fraction_positive": 0.16666666666666666,
+        "count": 36
       },
       {
         "bin_center": 0.45,

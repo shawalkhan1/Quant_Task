@@ -1,5 +1,11 @@
 """Container smoke test: Polymarket reachability + live loader check."""
 
+import os
+import sys
+
+# Allow direct execution via: python docker/smoke_test.py
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import requests
 
 from src.data.live_market_loader import load_live_polymarket_data

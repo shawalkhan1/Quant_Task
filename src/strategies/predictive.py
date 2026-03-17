@@ -96,7 +96,8 @@ class PredictiveStrategy(BaseStrategy):
 
         # Prepare training data
         X, y = self._prepare_training_data(features_df, market_data, feature_columns)
-        if X is None or len(X) < 100:
+        min_train_samples = 50
+        if X is None or len(X) < min_train_samples:
             logger.warning(f"Insufficient training data: {len(X) if X is not None else 0} samples")
             return {"status": "insufficient_data"}
 
@@ -269,43 +270,65 @@ class PredictiveStrategy(BaseStrategy):
     ) -> Tuple[Optional[np.ndarray], Optional[np.ndarray]]:
         """Prepare aligned X, y arrays for model training."""
         if feature_columns is None:
-            # Auto-detect feature columns
+            # Auto-detect feature columns.
+            # Keep only numeric predictors and explicitly exclude targets/IDs.
             exclude = {
                 "open", "high", "low", "close", "volume",
                 "market_id", "symbol", "resolution", "strike",
                 "fair_price", "market_price_yes", "market_price_no",
                 "time_to_expiry_min", "minutes_elapsed", "close_price",
-                "implied_vol",
+                "implied_vol", "question", "category", "outcome_yes", "outcome_no",
             }
-            feature_columns = [c for c in features_df.columns if c not in exclude]
+            feature_columns = [
+                c for c in features_df.columns
+                if c not in exclude and pd.api.types.is_numeric_dtype(features_df[c])
+            ]
 
         self._feature_columns = feature_columns
 
-        # Only use rows where we have market resolution data
-        # And only one sample per market (at the signal generation point)
-        if "market_id" not in market_data.columns:
+        # Prefer using feature rows that already include market metadata.
+        # This avoids fragile timestamp-only alignment when duplicate timestamps exist.
+        if "market_id" not in features_df.columns:
+            return None, None
+        if "resolution" not in features_df.columns:
             return None, None
 
-        # Use observations at specific minutes_elapsed (e.g., minute 3-5)
-        # to have enough time info but not too close to expiry
-        if "minutes_elapsed" in market_data.columns:
-            signal_data = market_data[
-                (market_data["minutes_elapsed"] >= 3) &
-                (market_data["minutes_elapsed"] <= 5)
+        train_df = features_df.copy()
+
+        # Drop rows with missing core fields first.
+        train_df = train_df[train_df["market_id"].notna() & train_df["resolution"].notna()]
+
+        # Use a preferred early-window sample for each market.
+        # Fallback to wider windows if the preferred band is empty in live data.
+        if "minutes_elapsed" in train_df.columns:
+            primary = train_df[
+                (train_df["minutes_elapsed"] >= 3) &
+                (train_df["minutes_elapsed"] <= 5)
             ].copy()
+
+            if len(primary) > 0:
+                signal_data = primary
+            else:
+                secondary = train_df[
+                    (train_df["minutes_elapsed"] >= 0) &
+                    (train_df["minutes_elapsed"] <= 15)
+                ].copy()
+                signal_data = secondary if len(secondary) > 0 else train_df.copy()
         else:
-            signal_data = market_data.copy()
+            signal_data = train_df.copy()
 
         if len(signal_data) == 0:
             return None, None
 
-        # Get corresponding features
-        common_idx = signal_data.index.intersection(features_df.index)
-        if len(common_idx) < 50:
+        # Use one representative sample per market to reduce over-weighting
+        # markets with denser minute-level history.
+        signal_data = signal_data.sort_index().drop_duplicates(subset=["market_id"], keep="first")
+
+        if len(signal_data) < 50:
             return None, None
 
-        X_df = features_df.loc[common_idx, feature_columns].copy()
-        y_series = signal_data.loc[common_idx, "resolution"]
+        X_df = signal_data[feature_columns].copy()
+        y_series = signal_data["resolution"].copy()
 
         # Drop rows with NaN
         valid_mask = X_df.notna().all(axis=1) & y_series.notna()

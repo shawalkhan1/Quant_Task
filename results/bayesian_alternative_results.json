@@ -1,12 +1,12 @@
 {
   "model": "Contextual Bayesian (Beta-Binomial)",
-  "n_test_markets": 49,
-  "bayesian_brier_score": 0.2147,
-  "ensemble_brier_score": 0.25,
-  "bayesian_accuracy": 0.6939,
-  "ensemble_accuracy": 0.6939,
-  "bayesian_mean_prediction": 0.3048,
-  "ensemble_mean_prediction": 0.5,
-  "actual_positive_rate": 0.3061,
-  "conclusion": "Bayesian model adapts too slowly to short-horizon regime changes. The LR+GBT ensemble achieves better Brier score and accuracy."
+  "n_test_markets": 47,
+  "bayesian_brier_score": 0.1956,
+  "ensemble_brier_score": 0.2335,
+  "bayesian_accuracy": 0.7447,
+  "ensemble_accuracy": 0.7447,
+  "bayesian_mean_prediction": 0.3045,
+  "ensemble_mean_prediction": 0.1607,
+  "actual_positive_rate": 0.2553,
+  "conclusion": "Bayesian outperformed LR+GBT on calibration and/or matched or bettered accuracy in this run."
 }

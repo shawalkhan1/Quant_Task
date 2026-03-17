@@ -1,4 +1,4 @@
 Strategy,IS_Trades,IS_Return%,IS_Sharpe,IS_MaxDD%,IS_WinRate%,IS_ProfitFactor,OOS_Trades,OOS_Return%,OOS_Sharpe,OOS_MaxDD%,OOS_WinRate%,OOS_ProfitFactor
 MarketMaker,0,0.0,0.0,0.0,0.0,0.0,0,0.0,0.0,0.0,0.0,0.0
-Arbitrage,47,12.96,20.47,6.67,0.3,1.52,21,4.88,14.77,4.69,0.4,1.42
-Predictive,0,0.0,0.0,0.0,0.0,0.0,0,0.0,0.0,0.0,0.0,0.0
+Arbitrage,47,11.9,16.73,6.58,0.3,1.45,19,4.91,12.53,6.04,0.4,1.44
+Predictive,5,-0.41,-33.92,0.41,0.0,0.0,16,-1.38,-41.91,1.38,0.0,0.0

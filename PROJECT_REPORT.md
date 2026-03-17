@@ -59,14 +59,16 @@ Current runtime uses live Polymarket APIs and satisfies the full scope.
 
 ## 5. Latest Results Snapshot
 
+Note: Because runtime uses live Polymarket history, exact numbers vary by run time and market set. The authoritative snapshot is always in `results/comparison_summary.csv`, `results/calibration_results.json`, and `results/bayesian_alternative_results.json`.
+
 ### Out-of-Sample Return
 
 ```mermaid
 xychart-beta
 	title "Out-of-Sample Return %"
 	x-axis [MarketMaker, Arbitrage, Predictive]
-	y-axis "Return %" 0 --> 15
-	bar [0.0, 4.88, 0.0]
+	y-axis "Return %" -2 --> 12
+	bar [0.0, 4.91, -1.38]
 ```
 
 ### Out-of-Sample Trades
@@ -76,7 +78,7 @@ xychart-beta
 	title "Out-of-Sample Trades"
 	x-axis [MarketMaker, Arbitrage, Predictive]
 	y-axis "Trades" 0 --> 25
-	bar [0, 21, 0]
+	bar [0, 19, 16]
 ```
 
 ### Calibration (Brier)
@@ -85,8 +87,8 @@ xychart-beta
 xychart-beta
 	title "Brier Score (Lower is Better)"
 	x-axis [Ensemble, Bayesian]
-	y-axis "Brier" 0.20 --> 0.26
-	bar [0.25, 0.2147]
+	y-axis "Brier" 0.18 --> 0.25
+	bar [0.2335, 0.1956]
 ```
 
 ### Key Numbers
@@ -94,11 +96,11 @@ xychart-beta
 | Metric | Value |
 |---|---:|
 | Markets in dataset | 78 |
-| Market observations | 180,194 |
-| Best OOS return | +4.88% (Arbitrage) |
-| Best OOS profit factor | 1.42 (Arbitrage) |
-| Ensemble Brier | 0.2500 |
-| Bayesian Brier | 0.2147 |
+| Market observations | 196,840 |
+| Best OOS return | +4.91% (Arbitrage) |
+| Best OOS profit factor | 1.44 (Arbitrage) |
+| Ensemble Brier | 0.2335 |
+| Bayesian Brier | 0.1956 |
 
 ## 6. Validation
 

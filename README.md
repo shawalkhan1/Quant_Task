@@ -160,7 +160,7 @@ docker compose run --rm --profile jobs jobs
 ### 5. Run container smoke test
 
 ```bash
-docker compose run --rm web python docker/smoke_test.py
+docker compose run --rm web python -m docker.smoke_test
 ```
 
 ### 6. Logs and shutdown

@@ -313,6 +313,27 @@ ensemble_brier = brier_score_loss(actuals, ensemble_preds)
 bayesian_acc = accuracy_score(actuals, (bayesian_preds > 0.5).astype(int))
 ensemble_acc = accuracy_score(actuals, (ensemble_preds > 0.5).astype(int))
 
+if ensemble_brier < bayesian_brier and ensemble_acc >= bayesian_acc:
+    bayes_vs_ens_conclusion = (
+        "LR+GBT ensemble outperformed Bayesian on both calibration (Brier) "
+        "and directional accuracy in this run."
+    )
+elif ensemble_brier < bayesian_brier:
+    bayes_vs_ens_conclusion = (
+        "LR+GBT ensemble achieved better calibration (lower Brier), while "
+        "accuracy was mixed across models in this run."
+    )
+elif ensemble_acc > bayesian_acc:
+    bayes_vs_ens_conclusion = (
+        "Bayesian was better calibrated (lower Brier), but LR+GBT achieved "
+        "higher directional accuracy in this run."
+    )
+else:
+    bayes_vs_ens_conclusion = (
+        "Bayesian outperformed LR+GBT on calibration and/or matched or bettered "
+        "accuracy in this run."
+    )
+
 # Calibration comparison
 bayesian_results = {
     "model": "Contextual Bayesian (Beta-Binomial)",
@@ -324,10 +345,7 @@ bayesian_results = {
     "bayesian_mean_prediction": round(float(bayesian_preds.mean()), 4),
     "ensemble_mean_prediction": round(float(ensemble_preds.mean()), 4),
     "actual_positive_rate": round(float(actuals.mean()), 4),
-    "conclusion": (
-        "Bayesian model adapts too slowly to short-horizon regime changes. "
-        "The LR+GBT ensemble achieves better Brier score and accuracy."
-    ),
+    "conclusion": bayes_vs_ens_conclusion,
 }
 
 print(f"  Bayesian Brier: {bayesian_brier:.4f}")
